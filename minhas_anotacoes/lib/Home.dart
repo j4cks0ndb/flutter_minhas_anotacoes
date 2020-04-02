@@ -1,6 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:minhasanotacoes/helper/AnotacaoHelper.dart';
 import 'package:minhasanotacoes/model/Anotacao.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 class Home extends StatefulWidget {
   @override
@@ -15,12 +18,24 @@ class _HomeState extends State<Home> {
 
   List<Anotacao> _anotacoes = List<Anotacao>();
 
-  _exibirTelaCadastro(){
+  _exibirTelaCadastro({Anotacao anotacao}){
+
+    String acao = "";
+    if(anotacao == null){
+      _tituloController.text = "";
+      _descricaoController.text = "";
+      acao = "Salvar";
+    }else{
+      _tituloController.text = anotacao.titulo;
+      _descricaoController.text = anotacao.descricao;
+      acao = "Atualizar";
+    }
+
     showDialog(
         context: context,
       builder: (context){
           return AlertDialog(
-            title: Text("Adicionar anotação"),
+            title: Text("$acao anotação"),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
@@ -48,10 +63,10 @@ class _HomeState extends State<Home> {
               ),
               FlatButton(
                 onPressed: (){
-                  _salvarAnotacao();
+                  _salvarAtualizarAnotacao(anotacaoSelecionada: anotacao);
                   Navigator.pop(context);
                 },
-                child: Text("Salvar"),
+                child: Text(acao),
               )
             ],
           );
@@ -73,17 +88,40 @@ class _HomeState extends State<Home> {
 
   }
 
-  _salvarAnotacao() async {
+  _salvarAtualizarAnotacao({Anotacao anotacaoSelecionada}) async {
+
     String titulo = _tituloController.text;
     String descricao = _descricaoController.text;
+    int resultado ;
 
-    Anotacao anotacao = Anotacao(titulo, descricao, DateTime.now().toString());
-    int resultado = await _db.salvarAnotacao(anotacao);
+    if (anotacaoSelecionada == null) {
+      Anotacao anotacao = Anotacao(titulo, descricao, DateTime.now().toString());
+      resultado = await _db.salvarAnotacao(anotacao);
+    }else{
+      anotacaoSelecionada.titulo = titulo;
+      anotacaoSelecionada.descricao = descricao;
+      anotacaoSelecionada.data = DateTime.now().toString();
+      resultado = await _db.atualizarAnotacao(anotacaoSelecionada);
+    }
 
     _tituloController.clear();
     _descricaoController.clear();
     _recuperarAnotacoes();
 
+  }
+
+  _removerAnotacao(int id) async{
+    await _db.removerAnotacao(id);
+    _recuperarAnotacoes();
+  }
+
+  _formatarData(String data){
+    initializeDateFormatting("pt_BR");
+    var formatador =  DateFormat("MMM, dd y HH:mm","pt_BR");
+    //var formatador = DateFormat.yMMMd().add_jm();
+    DateTime dataConvertida = DateTime.parse(data);
+    String dataFormatada = formatador.format(dataConvertida);
+    return dataFormatada;
   }
 
   @override
@@ -110,7 +148,36 @@ class _HomeState extends State<Home> {
                   return Card(
                     child: ListTile(
                       title: Text(anotacao.titulo),
-                      subtitle: Text("${anotacao.data} - ${anotacao.descricao}"),
+                      subtitle: Text("${_formatarData(anotacao.data)} - ${anotacao.descricao}"),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          GestureDetector(
+                            onTap: (){
+                              _exibirTelaCadastro(anotacao: anotacao);
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.only(right: 16),
+                              child: Icon(
+                                Icons.edit,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onLongPress: (){
+                              _removerAnotacao(anotacao.id);
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.only(right: 0),
+                              child: Icon(
+                                Icons.remove_circle,
+                                color: Colors.red,
+                              ),
+                            ),
+                          )
+                        ],
+                      ),
                     ),
                   );
                 }
